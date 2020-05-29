@@ -1,0 +1,65 @@
+集群中如果同步机制失效，比如集群之间数据同步的端口被防火墙关闭了，那么任何数据都写不进。
+PCX 集群只能按照linux平台
+1. PXC的docker镜像 https://hub.docker.com/r/percona/percona-xtradb-cluster/
+2. docker pull percona/percona-xtradb-cluster  或者 docker load  <  ../../pxc.tar.gz
+
+搭建一个5节点的pxc集群，创建5个pxc容器，出于安全考虑，不需要对外网，需要给pxc 集群实例创建
+Docker 内部网络，
+docker network create net1
+docker network inspect net1
+docker network rm net1
+比如： docker network create --subnet=172.18.0.0/24 net1 (子网掩码24位)
+
+pxc 在docker中无法使用目录映射，必须使用docker卷
+docker volume create --name v1
+docker  volume inspect v1 得到v1卷所在宿主机目录
+docker volume rm v1
+
+docker volume create --name v1
+docker volume create --name v2
+docker volume create --name v3
+docker volume create --name v4
+docker volume create --name v5
+
+-d表示后台启动
+--privileged=true最高权限
+1.
+docker run -d -p 3307:3306 \
+-e MYSQL_ROOT_PASSWORD=000000 \
+-e CLUSTER_NAME=PXC \
+-e XTRABACKUP_PASSWORD=000000 \
+-v  v1:/var/lib/mysql \
+--privileged=true --name=node1 --net=net1 --ip 172.18.0.2  pxc
+2.
+docker run -d -p 3308:3306 \
+-e MYSQL_ROOT_PASSWORD=000000 \
+-e CLUSTER_NAME=PXC \
+-e XTRABACKUP_PASSWORD=000000 \
+-e CLUSTER_JOIN=node1 \
+-v  v2:/var/lib/mysql \
+--privileged=true --name=node2 --net=net1 --ip 172.18.0.3 pxc
+3.
+docker run -d -p 3309:3306 \
+-e MYSQL_ROOT_PASSWORD=000000 \
+-e CLUSTER_NAME=PXC \
+-e XTRABACKUP_PASSWORD=000000 \
+-e CLUSTER_JOIN=node1 \
+-v  v3:/var/lib/mysql \
+--privileged=true --name=node3 --net=net1 --ip 172.18.0.4 pxc
+4.
+docker run -d -p 3310:3306 \
+-e MYSQL_ROOT_PASSWORD=000000 \
+-e CLUSTER_NAME=PXC \
+-e XTRABACKUP_PASSWORD=000000 \
+-e CLUSTER_JOIN=node1 \
+-v  v4:/var/lib/mysql \
+--privileged=true --name=node4 --net=net1 --ip 172.18.0.5 pxc
+5.
+docker run -d -p 3311:3306 \
+-e MYSQL_ROOT_PASSWORD=000000 \
+-e CLUSTER_NAME=PXC \
+-e XTRABACKUP_PASSWORD=000000 \
+-e CLUSTER_JOIN=node1 \
+-v  v5:/var/lib/mysql \
+--privileged=true --name=node5 --net=net1 --ip 172.18.0.6 pxc
+--------------------

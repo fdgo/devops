@@ -1,0 +1,58 @@
+docker 安装各种软件
+
+mysql 
+1.docker pull mysql:8
+2.sudo docker run --name mysql8.0  -v /home/mysql/datadir:/var/lib/mysql -v /home/mysql/conf.d:/etc/mysql/conf.d  -e MYSQL_ROOT_PASSWORD=123456 -p 3306:3306 -d mysql:8
+3.docker exec -it  f871701b9add  bash 
+4.mysql -u root -p
+5.use mysql;
+6.GRANT ALL ON *.* TO 'root'@'%';
+7.ALTER USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY '000000';
+8.flush privileges;
+
+redis
+docker run -itd --name redis_server -p 6379:6379 redis
+
+go get github.com/go-xorm/cmd/xorm
+go get github.com/go-xorm/xorm
+go get github.com/go-sql-driver/mysql
+cd  $GOPATH/src/github.com/go-xorm/cmd/xorm
+xorm  reverse mysql  root:000000@tcp(120.27.239.127:3306)/database?charset=utf8mb4 templates/goxorm
+----------------------------------------------------------------------------------------------------------
+rabbitmq
+https://www.jianshu.com/p/8e9e717c1538      rabbitmq  集群
+单机 docker run -d --hostname  wmhpc --name rabbit_server -e RABBITMQ_DEFAULT_USER=wmh -e RABBITMQ_DEFAULT_PASS=123456 -p 15672:15672 -p 5672:5672 rabbitmq:management
+集群
+rabbitmq集群搭建
+1.关闭防火墙
+启动： systemctl start firewalld
+关闭： systemctl stop firewalld
+查看状态： systemctl status firewalld 
+开机禁用  ： systemctl disable firewalld
+开机启用  ： systemctl enable firewalld
+2. 三台机分别创建  /opt/rabbitmq/hosts
+192.168.43.94 master  rabbit1
+192.168.43.74 master  rabbit2
+192.168.43.73 master  rabbit3
+3.创建 .erlang.cookie文件,里面内容随便，比如: ERLANGCOOKIE, chmod 600 .erlang.cookie
+4.
+docker run -d --net host --name rabbit1  --log-opt max-size=10m --log-opt max-file=3 -v /opt/rabbitmq/.erlang.cookie:/var/lib/rabbitmq/.erlang.cookie -v /opt/rabbitmq:/var/lib/rabbitmq:z  -v /opt/rabbitmq/hosts:/etc/hosts -e RABBITMQ_DEFAULT_USER=admin   -e RABBITMQ_DEFAULT_PASS=123456   rabbitmq:management
+
+docker run -d --net host --name rabbit2  --log-opt max-size=10m --log-opt max-file=3 -v /opt/rabbitmq/.erlang.cookie:/var/lib/rabbitmq/.erlang.cookie -v /opt/rabbitmq:/var/lib/rabbitmq:z  -v /opt/rabbitmq/hosts:/etc/hosts -e RABBITMQ_DEFAULT_USER=admin   -e RABBITMQ_DEFAULT_PASS=123456   rabbitmq:management
+
+docker run -d --net host --name rabbit3  --log-opt max-size=10m --log-opt max-file=3 -v /opt/rabbitmq/.erlang.cookie:/var/lib/rabbitmq/.erlang.cookie -v /opt/rabbitmq:/var/lib/rabbitmq:z  -v /opt/rabbitmq/hosts:/etc/hosts -e RABBITMQ_DEFAULT_USER=admin   -e RABBITMQ_DEFAULT_PASS=123456   rabbitmq:management
+
+5. 二号，三号机器分别执行
+sudo docker exec -it rabbit2 /bin/bash
+rabbitmqctl stop_app
+rabbitmqctl join_cluster rabbit@master  (rabbit不改变)
+rabbitmqctl start_app
+6.浏览器访问  192.168.43.94:15672
+-----------------------------------------------------------------------------------------------------------------------------
+consul
+docker run --name consul_server -itd -p 8500:8500 -p 8300:8300 -p 8301:8301 -p 8302:8302 -p 8600:8600 consul agent -server -bootstrap-expect=1 -ui -bind=0.0.0.0 -client=0.0.0.0
+
+smartgit
+sudo add-apt-repository ppa:eugenesan/ppa
+sudo apt-get update
+sudo apt-get install smartgit

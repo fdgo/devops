@@ -1,0 +1,29 @@
+Replication 方案  
+1.  在Slave   机子上执行  stop  slave；  这样在master 插入数据， slave上就不能同步(没数据)
+2.  查看目前的状态   show slave status;  如果  Slave_IO_Running 和  Slave_SQL_Running 任何一个出现NO，则此时处于不同步状态。
+
+---------------------------------------------------------
+Haproxy  支持tcp/ip
+nginx 一般用做http负载均衡(tcp才出来几年，不一定稳)
+
+docker pull haproxy
+mkdir  /var/haproxy
+touch /var/haproxy/haproxy.cfg 
+https://zhangge.net/5125.html(参数说明)
+
+docker run -it -d  \
+-p 4001:8888  \
+-p 4002:3306  \
+-v /var/haproxy:/usr/local/etc/haproxy  \
+--name haproxy01 --privileged=true --net=net1  \
+--ip 172.18.0.7  \
+haproxy 
+------------
+进入容器指定配置文件重新启动  
+docker exec -it  haproxy01 /bin/bash 
+haproxy -f /usr/local/etc/haproxy/haproxy.cfg
+--------------
+进入指定的node1 数据库进行中   执行sql语句  CREATE USER 'haproxy'@'%' IDENTIFIED BY '000000';
+
+http://127.0.0.1:4001/dbs 看界面监控
+

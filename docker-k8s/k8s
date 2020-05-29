@@ -1,0 +1,144 @@
+0. 一个master，两个slaver
+1.上传已有的k8s镜像（34个文件）到master和2个slaver.
+2.
+mv /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d/CentOS-Base.repo.backup
+cd   /etc/yum.repos.d/
+wget http://mirrors.163.com/.help/CentOS7-Base-163.repo
+yum clean all
+yum makecache
+yum -y update
+yum groupinstall "Development Tools"
+yum install gcc-g++
+yum install net-tools
+
+yum -y groupinstall "Development tools"
+yum -y install zlib-devel bzip2-devel openssl-devel ncurses-devel sqlite-devel readline-devel tk-devel gdbm-devel db4-devel libpcap-devel xz-devel
+yum install libffi-devel -y
+
+cd #回到用户目录
+wget https://www.python.org/ftp/python/3.7.0/Python-3.7.0.tar.xz
+tar -xvJf  Python-3.7.0.tar.xz
+
+mkdir /usr/local/python3 #创建编译安装目录
+cd Python-3.7.0
+./configure --prefix=/usr/local/python3
+make && make install
+
+ln -s /usr/local/python3/bin/python3 /usr/local/bin/python3
+ln -s /usr/local/python3/bin/pip3 /usr/local/bin/pip3
+
+python3 -V
+pip3 -V
+
+3.(三台机子都要做)   mv /etc/yum.repos.d/CentOS-Base.repo /opt/
+
+3. master 安装 etcd 和 master
+yum install -y  kubernetes  etcd flannel ntp
+
+4.slaver1,slaver2  安装 yum install -y kubernetes  flannel   ntp
+5.  
+主机
+echo master > /etc/hostname
+其他两台
+echo slaver1 > /etc/hostname
+echo slaver2 > /etc/hostname
+6.
+三台机器
+192.168.133.130  master
+192.168.133.130  etcd
+192.168.133.131  slaver1
+192.168.133.132  slaver2
+7. systemctl  disable firewalld;  systemctl stop firewalld
+8.vi /etc/etcd/etcd.conf    
+ETCD_LISTEN_CLIENT_URLS="http://localhost:2379,http://192.168.133.130:2379"
+ETCD_ADVERTISE_CLIENT_URLS="http://192.168.133.130:2379"
+9. grep -v ^# /etc/etcd/etcd.conf
+10. netstat -antup | grep 2379
+11.systemctl status etcd
+12. etcdctl cluster-health   etcdctl member list
+13. vi /etc/kubernetes/config   (KUBE_ALLOW_PRIV="--allow-privileged=false"  不允许运行特权容器)
+KUBE_MASTER="--master=http://192.168.133.130:8080"
+14. vi /etc/kubernetes/apiserver 
+KUBE_API_ADDRESS="--insecure-bind-address=0.0.0.0"
+KUBE_ETCD_SERVERS="--etcd-servers=http://192.168.133.130:2379"
+KUBE_ADMISSION_CONTROL="--admission-control=AlwaysAdmit"  (谁可以使用apiserver服务)
+15. vi /etc/kubernetes/controller-manager  (保持默认)
+16. vi /etc/kubernetes/scheduler   
+KUBE_SCHEDULER_ARGS="--address=0.0.0.0"  (不添加也可以)
+17.vi /etc/sysconfig/flanneld
+FLANNEL_ETCD_ENDPOINTS="http://192.168.133.130:2379"
+FLANNEL_ETCD_PREFIX="/k8s/network"
+FLANNEL_OPTIONS="--iface=ens33"
+18.etcdctl set /k8s/network/config '{"Network":"10.255.0.0/16"}'
+19.systemctl restart kube-apiserver kube-controller-manager kube-scheduler firewalld  etcd
+20.systemctl status kube-apiserver kube-controller-manager kube-scheduler
+21.到slaver1机器上
+关闭防火墙   systemctl  disable firewalld;  systemctl stop firewalld
+22. vi /etc/sysconfig/flanneld
+FLANNEL_ETCD_ENDPOINTS="http://192.168.133.130:2379"
+FLANNEL_ETCD_PREFIX="/k8s/network"
+FLANNEL_OPTIONS="--iface=ens33"
+23. systemctl restart flanneld
+ps -aux | grep flanneld
+24.重启master机器flanneld   systemctl restart flanneld
+25.配置slaver1机器  kube-proxy
+vi /etc/kubernetes/config
+KUBE_MASTER="--master=http://192.168.133.130:8080"
+(/etc/kubernetes/proxy通常不用动)
+26.配置slaver1 kubelet
+KUBELET_ADDRESS="--address=0.0.0.0"
+KUBELET_HOSTNAME="--hostname-override=slaver1"
+KUBELET_API_SERVER="--api-servers=http://192.168.133.130:8080
+27.slaver1   systemctl restart flanneld kube-proxy kubelet docker
+28. 在slaver1上执行   scp  /etc/sysconfig/flanneld 192.168.133.132:/etc/sysconfig/
+把配置拷贝到slaver2中
+scp  /etc/kubernetes/proxy 192.168.133.132:/etc/kubernetes
+scp  /etc/kubernetes/config 192.168.133.132:/etc/kubernetes
+scp  /etc/kubernetes/kubelet  192.168.133.132:/etc/kubernetes   ->KUBELET_HOSTNAME="--hostname-override=slaver2"
+29.systemctl restart flanneld kube-proxy kubelet  docker
+30.在master 中 kubectl get nodes
+NAME      STATUS    AGE
+slaver1   Ready     1h
+slaver2   Ready     7m
+集群搭建完成
+
+
+查看版本
+kubectl version
+查看集群构成
+kubectl  get  nodes
+
+route -n
+cat /run/flannel/subnet.env
+cat /run/flannel/docker
+
+31.
+slaver1和slaver2分别上传docker.io-nginx.tar 
+分别加载nginx镜像
+docker load -i docker.io-nginx.tar
+32.kubectl run nginx --image=docker.io/nginx --replicas=1 --port=9000
+kubectl get deployment
+kubectl get pods -o wide
+kubectl delete pods nginx-2187705812-jlpg3(新pod又会产生，因为副本为1)
+kubectl delete  deployment nginx
+
+kubectl create -f mysql-deployment.yaml
+kubectl get service
+kubectl describe pod  nginx-2187705812-xnn0z
+kubectl  get deployment  得到名字
+kubectl  describe deployment  名字
+
+
+kubectl get pods
+kubectl logs mysql-2261771434-4k2gd
+kubectl exec mysql-2261771434-4k2gd  cat  /etc/my.cnf
+kubectl exec -it mysql-2261771434-4k2gd bash
+
+kubectl cp  mysql-2261771434-4k2gd:/tmp/hosts /etc/hosts
+error: unexpected EOF
+kubectl exec -it mysql-2261771434-4k2gd bash
+yum install tar net-tools -y
+
+which tar 
+rpm -qf  /usr/bin/tar
+
